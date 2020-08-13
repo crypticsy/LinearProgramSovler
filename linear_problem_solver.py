@@ -136,7 +136,7 @@ def getConstraints():
                 key = "Constant"+str(concount) if i >=len(currvariable) else currvariable[i] +str(concount)
                 value = 1 if currcoef[i] == "+" else -1 if currcoef[i] == "-" else float(currcoef[i])
                 constraints[key] = value
-            if function.find('=<')!= -1:
+            if function.find('=<')!= -1 or function.find('<=')!= -1:
                 constraints["sign"+str(concount)] = '=<'
             elif function.find('>=') != -1:
                 constraints["sign"+str(concount)] = '>='
@@ -273,83 +273,86 @@ def identitymatrix():
 
 print("*** Welcome to the Simplex Solver ***")
 
-
-defineVariables()
-defineObjetiveFunction()
-getConstraints()
-
-
-#standarized equation
-extravar = {}
-for i in range(concount):               # count slack and surplus variables as well as assign values
-    temp = symbol[constraints["sign"+str(i)]]
-    extravar[temp] = 1 if temp not in extravar else extravar[temp] + 1
-    if temp == "SL":
-        constraints[temp+str(extravar[temp]-1)+str(i)] = 1
-    elif temp == "SU":
-        constraints[temp+str(extravar[temp]-1)+str(i)] = -1
-        constraints["A"+str(extravar[temp]-1)+str(i)] = 1
-
-for i in range(concount):               # count artificial variables as well as assign values
-    temp = symbol[constraints["sign"+str(i)]]
-    if temp == "A":
-        constraints[temp+str(extravar[temp]+extravar["SU"]-1)+str(i)] = 1
-
-        
-
-extra = []                              #add slack, surplus and aritficial variables to the order
-for i in extravar.keys():
-    for a in range(extravar[i]):
-        if i == "SU":
-            extra.append(i+str(a))
-            extra.append("A"+str(a))
-        elif i == "SL":
-            extra.append(i+str(a))
-        elif i == "A":
-            extra.append(i+str(a+extravar["SU"]))
-order += extra + ["Constant"]
-
-#add the objective function in the main database
-database['R0'] = {}
-maxlength = 0
-multiple = -1 if option == "2" else 1
-for i in order:
-    if i in objectiveFunction:
-        database['R0'][i] = objectiveFunction[i] if i  == rand else -objectiveFunction[i]
-        maxlength = max(maxlength, len(str(abs(int(database['R0'][i])))))
-    else:
-        database['R0'][i] = multiple*(10**maxlength) if i[0] == "A" else 0 
+try:
+    defineVariables()
+    defineObjetiveFunction()
+    getConstraints()
 
 
-#add the constraints in the main database
-for i in range(concount):
-    key = "R"+str(i+1)
-    database[key] = {}
-    for a in order:
-        database[key][a] = 0 if a+str(i) not in constraints else constraints[a+str(i)]
+    #standarized equation
+    extravar = {}
+    for i in range(concount):               # count slack and surplus variables as well as assign values
+        temp = symbol[constraints["sign"+str(i)]]
+        extravar[temp] = 1 if temp not in extravar else extravar[temp] + 1
+        if temp == "SL":
+            constraints[temp+str(extravar[temp]-1)+str(i)] = 1
+        elif temp == "SU":
+            constraints[temp+str(extravar[temp]-1)+str(i)] = -1
+            constraints["A"+str(extravar[temp]-1)+str(i)] = 1
 
-if ("SU" in extravar or "A" in extravar) and option  == "2" :
-    displaySimplexTable()
-    identitymatrix()
+    for i in range(concount):               # count artificial variables as well as assign values
+        temp = symbol[constraints["sign"+str(i)]]
+        if temp == "A":
+            constraints[temp+str(extravar[temp]+extravar["SU"]-1)+str(i)] = 1
+
+            
+
+    extra = []                              #add slack, surplus and aritficial variables to the order
+    for i in extravar.keys():
+        for a in range(extravar[i]):
+            if i == "SU":
+                extra.append(i+str(a))
+                extra.append("A"+str(a))
+            elif i == "SL":
+                extra.append(i+str(a))
+            elif i == "A":
+                extra.append(i+str(a+extravar["SU"]))
+    order += extra + ["Constant"]
+
+    #add the objective function in the main database
+    database['R0'] = {}
+    maxlength = 0
+    multiple = -1 if option == "2" else 1
+    for i in order:
+        if i in objectiveFunction:
+            database['R0'][i] = objectiveFunction[i] if i  == rand else -objectiveFunction[i]
+            maxlength = max(maxlength, len(str(abs(int(database['R0'][i])))))
+        else:
+            database['R0'][i] = multiple*(10**maxlength) if i[0] == "A" else 0 
+
+
+    #add the constraints in the main database
+    for i in range(concount):
+        key = "R"+str(i+1)
+        database[key] = {}
+        for a in order:
+            database[key][a] = 0 if a+str(i) not in constraints else constraints[a+str(i)]
+
+    if ("SU" in extravar or "A" in extravar) and option  == "2" :
+        displaySimplexTable()
+        identitymatrix()
 
 
 
-while True:
-    prevdatabase = copy.deepcopy(database)
-    displaySimplexTable()
-    if optimum():break
-    nextTable()
-    if prevdatabase == database:break
+    while True:
+        prevdatabase = copy.deepcopy(database)
+        displaySimplexTable()
+        if optimum():break
+        nextTable()
+        if prevdatabase == database:break
 
 
-print( "\n\n The optimum solution is reached when : ")
-print( str(rand) + " = " + str(round (database['R0']['Constant'])) )
-for i in decisionVaraibles.keys():
-    foundcol = ""
-    for b in range(1,len(database)):
-        if foundcol == "" and database['R'+str(b)][i] == 1:
-            foundcol =  'R'+str(b)
-        elif  database['R'+str(b)][i] !=0:
-            foundcol = ""
-            break
-    print(i + " = "+ str(round(database[foundcol]['Constant']))  if foundcol!="" else i + " = "+str(0))
+    print( "\n\n The optimum solution is reached when : ")
+    print( str(rand) + " = " + str(round (database['R0']['Constant'])) )
+    for i in decisionVaraibles.keys():
+        foundcol = ""
+        for b in range(1,len(database)):
+            if foundcol == "" and database['R'+str(b)][i] == 1:
+                foundcol =  'R'+str(b)
+            elif  database['R'+str(b)][i] !=0:
+                foundcol = ""
+                break
+        print(i + " = "+ str(round(database[foundcol]['Constant']))  if foundcol!="" else i + " = "+str(0))
+
+except:
+    print("***ERROR DETECTED. Please try again.***")
